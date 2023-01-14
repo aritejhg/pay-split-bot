@@ -26,12 +26,22 @@ async def poll(update: Update, context: ContextTypes.DEFAULT_TYPE):
         allows_multiple_answers=True,
     )
 
+# async def uploadReceipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     message = update.message.text
+
+#     # uploaded_receipt = await context.bot.send_document(chat_id=update.effective_chat.id, document='tests/test.png')
+
+#     file = context.bot.get_file(update.message.document.file_id)
+#     #f = BytesIO(file.download_as_bytearray)
+#     #file_bytes = np.asarray(bytearray(f.read(), dtype=np.uint8))
+
 if __name__ == "__main__":
     bot_token = get_bot_token()
     app = ApplicationBuilder().token(bot_token).build()
 
     start_handler = CommandHandler('start', start)
     poll_handler = CommandHandler('poll', poll)
-    app.add_handlers([start_handler, poll_handler])
+    upload_handler = CommandHandler('upload', uploadReceipt)
+    app.add_handlers([start_handler, poll_handler, upload_handler])
 
     app.run_polling()
