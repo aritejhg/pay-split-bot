@@ -1,5 +1,7 @@
 """
 denoise -> gray -> remove_shadow -> threshold -> rotate
+
+just call img_preprocess(img) to get the processed image
 """
 
 import cv2
@@ -8,7 +10,8 @@ import os
 import pytesseract
 import imutils
 
-def img_preprocess(img):
+def preprocess_img(img_path):
+    img = cv2.imread(img_path)
     denoised = denoise(img)
     gray = cv2.cvtColor(denoised, cv2.COLOR_BGR2GRAY)
     gray = remove_shadow(gray)
