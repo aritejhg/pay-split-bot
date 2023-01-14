@@ -14,6 +14,8 @@ logging.basicConfig(
 )
 
 POLL_OPEN_TIME = 24 * 60 * 60 # 24 hours
+REMINDER_DELAY = 120 # 2 min
+REMINDER_INTERVAL = 300 # 5 min
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
@@ -25,14 +27,17 @@ async def send_split(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     poll_name = message.text.split(" ")[1]
 
-    items = ["Apple", "Orange", "Banana"]
+    # Send poll
+    items = ["Apple", "Orange", "Banana"] # TODO: Replace
+
+    chat_id = update.effective_chat.id
     sent_poll = await context.bot.send_poll(
-        chat_id=update.effective_chat.id,
+        chat_id=chat_id,
         question=poll_name,
         options=items,
         is_anonymous= False,
         allows_multiple_answers=True,
-        open_period=POLL_OPEN_TIME
+        open_period=POLL_OPEN_TIME,
     )
 
     # Add to polls DB
@@ -41,14 +46,32 @@ async def send_split(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot_data["polls"] = {}
 
     chat_polls = context.bot_data.get("polls")
-    chat_polls[sent_poll.poll.id] = ReceiptSplit(
-        chat_id=update.effective_chat.id,
+    split_obj = ReceiptSplit(
+        chat_id=chat_id,
         message_id=sent_poll.message_id,
         items=items
     )
+    chat_polls[sent_poll.poll.id] = split_obj
+
+    # Schedule reminder
+    reminder_job = context.job_queue.run_repeating(split_reminder, interval=REMINDER_INTERVAL, first=REMINDER_DELAY, data={"poll_message_id": sent_poll.message_id, "split_obj": split_obj}, chat_id=chat_id)
+    split_obj.reminder_job = reminder_job
 
     logging.debug(chat_polls)
     logging.info(f"Created poll {sent_poll.poll.id}")
+
+async def split_reminder(context: ContextTypes.DEFAULT_TYPE):
+    data = context.job.data
+    split_obj = data.get("split_obj")
+
+    if split_obj.closed == True:
+        return
+
+    await context.bot.send_message(
+        chat_id=context.job.chat_id,
+        text=f'Receipt Split is still open!',
+        reply_to_message_id=data.get("poll_message_id")
+    )
 
 async def poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     poll_ans = update.poll_answer

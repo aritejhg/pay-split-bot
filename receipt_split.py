@@ -5,12 +5,17 @@ class ReceiptSplit:
         self.chat_id = chat_id
         self.message_id = message_id
         self.items = items
+        self.total = 0
         self.responses = {}
+        self.closed = False
+        self.reminder_job = None
 
     def update_response(self, user_name, option_ids):
         self.responses[user_name] = option_ids
 
     def get_summary(self):
+        # TODO: Add other details like costs and fix output
+
         user_sumamries = defaultdict(dict)
         for user, options in self.responses.items():
             if len(options) == 0:
@@ -26,6 +31,8 @@ class ReceiptSplit:
                 out = out + f"\n{i+1}. {item}"
                 out = out + "\n"
 
+        self.closed = True
+        self.reminder_job.schedule_removal()
         return out
 
     def __repr__(self) -> str:
