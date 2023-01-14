@@ -29,7 +29,6 @@ class ReceiptSplit:
             out = out + f'\n{user} - {summary["total"]}'
             for i, item in enumerate(summary["items"]):
                 out = out + f"\n{i+1}. {item}"
-                out = out + "\n"
 
         self.closed = True
         self.reminder_job.schedule_removal()
