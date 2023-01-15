@@ -65,7 +65,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-POLL_OPEN_TIME = 5 # 24 hours
+POLL_OPEN_TIME = 60 # 24 hours
 REMINDER_DELAY = 120 # 2 min
 REMINDER_INTERVAL = 300 # 5 min
 
@@ -80,6 +80,8 @@ async def send_split(update: Update, context: ContextTypes.DEFAULT_TYPE, orderIt
 
     # Send poll
     items = [item[0] for item in orderItems if item[1] != 0]
+
+    priceList = {item[0]:item[1] for item in orderItems if item[1] != 0}
 
     chat_id = update.effective_chat.id
     sent_poll = await context.bot.send_poll(
@@ -100,7 +102,8 @@ async def send_split(update: Update, context: ContextTypes.DEFAULT_TYPE, orderIt
     split_obj = ReceiptSplit(
         chat_id=chat_id,
         message_id=sent_poll.message_id,
-        items=items
+        items=items, 
+        priceList = priceList
     )
     chat_polls[sent_poll.poll.id] = split_obj
 
@@ -217,7 +220,7 @@ async def message(update, context):
 
 
 async def split_payments(update, context):
-    print("group photos", group_photos)
+    #print("group photos", group_photos)
 
     await _photosize_to_parsed(update, context, group_photos.get(update.message.chat_id))
 
@@ -229,11 +232,13 @@ async def _photosize_to_parsed(update, context, photosize):
 
     picIndex = picQueue.popleft()
 
-    filename = config.CACHE_DIR+ str(picIndex) + '.jpg'
+    filename = config.CACHE_DIR+ '/' + str(picIndex) + '.jpg'
+    #logging.debug(filename)
 
     await context.bot.send_message(chat_id=update.message.chat_id, text="file received. processing now.")
 
     #photosize.download(filename)
+    print(filename)
 
     out_img = img_preprocess.preprocess_img(cv2.imread(filename))
     image_text = pytesseract.image_to_string(out_img)
@@ -298,6 +303,6 @@ if __name__ == "__main__":
     split_handler = CommandHandler('split', send_split)
     poll_answer_handler = PollAnswerHandler(poll_answer)
     finalize_handler = CommandHandler('final', finalize_split)
-    app.add_handlers([start_handler, split_handler, poll_answer_handler,upload_handler, finalize_handler, message_handler])
+    app.add_handlers([start_handler, split_handler, poll_answer_handler,upload_handler, finalize_handler])
 
     app.run_polling()

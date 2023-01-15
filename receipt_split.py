@@ -1,10 +1,11 @@
 from collections import defaultdict
 
 class ReceiptSplit:
-    def __init__(self, chat_id, message_id, items) -> None:
+    def __init__(self, chat_id, message_id, items, priceList) -> None:
         self.chat_id = chat_id
         self.message_id = message_id
         self.items = items
+        self.priceList = priceList
         self.total = 0
         self.responses = {}
         self.closed = False
@@ -22,13 +23,14 @@ class ReceiptSplit:
                 continue
             summ = user_sumamries[user]
             summ["items"] = (self.items[ind] for ind in options)
-            summ["total"] = 100
+            summ["total"] = sum([self.priceList.get(item, 5) for item in self.items])
 
         out = "*Split Summary*\n"
         for user, summary in user_sumamries.items():
             out = out + f'\n{user} - {summary["total"]}'
             for i, item in enumerate(summary["items"]):
                 out = out + f"\n{i+1}. {item}"
+            out = out + "\n"
 
         self.closed = True
         self.reminder_job.schedule_removal()

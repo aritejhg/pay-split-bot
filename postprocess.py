@@ -32,11 +32,17 @@ def openai_call(text_ocr):
     frequency_penalty=0,
     presence_penalty=0
     )
-    # print(response)
+    print(response)
 
     response_text = response["choices"][0]["text"]
-    strip_text = response_text.split(" = ")[1]
-    # print(strip_text)
+    if "answer" in response_text:
+        strip_text = response_text.split(" = ")[1]
+
+    strip_text = response_text.strip("")
+
+
+
+    print(strip_text)
     main_response = ast.literal_eval(strip_text)
 
     # print(main_response)
