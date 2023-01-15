@@ -22,6 +22,8 @@ from receipt_split import ReceiptSplit
 
 from receipt_split import ReceiptSplit
 
+from collections import deque
+
 
 try:
 	import Image
@@ -29,6 +31,9 @@ except ImportError:
 	from PIL import Image
 
 group_photos = {}
+picQueue = deque([1,2,3])
+
+
 
 def resolve_args():
 	parser = argparse.ArgumentParser()
@@ -78,7 +83,6 @@ async def send_split(update: Update, context: ContextTypes.DEFAULT_TYPE, orderIt
     message = update.message
     # poll_name = message.text.split(" ")[1]
     poll_name = "Bill Split"
-
 
     # Send poll
     items = [item[0] for item in orderItems if item[1] != 0]
@@ -226,7 +230,9 @@ async def _photosize_to_parsed(update, context, photosize):
     #filename = config.CACHE_DIR+'/photo_'+''.join(str(time.time()).split('.'))+'.jpg'
     #print(photosize)
 
-    filename = config.CACHE_DIR+'/photo_16737215687738645.jpg'
+    picIndex = picQueue.popleft()
+
+    filename = config.CACHE_DIR+ str(picIndex) + '.jpg'
 
     await context.bot.send_message(chat_id=update.message.chat_id, text="file received. processing now.")
 
@@ -291,12 +297,12 @@ if __name__ == "__main__":
 
     start_handler = CommandHandler('start', start)
     #poll_handler = CommandHandler('poll', poll)
-    message_handler = MessageHandler(None, message)
     upload_handler = CommandHandler('splitpayments', split_payments)
     help_handler = CommandHandler('help', help)    
     split_handler = CommandHandler('split', send_split)
     poll_answer_handler = PollAnswerHandler(poll_answer)
     finalize_handler = CommandHandler('final', finalize_split)
+    message_handler = MessageHandler(None, message)
     app.add_handlers([start_handler, split_handler, poll_answer_handler,upload_handler,message_handler, finalize_handler])
 
     app.run_polling()
