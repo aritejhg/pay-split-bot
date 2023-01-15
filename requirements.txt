@@ -1,2 +1,5 @@
 tesseract
 python-telegram-bot
+Image
+Pillow
+telegram == 0.0.1

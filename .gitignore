@@ -1,5 +1,6 @@
 __pycache__
 *.pyc
+.env
 InvoiceNet/
 test_imgs/receipts/
 frozen_east_text_detection.pb
