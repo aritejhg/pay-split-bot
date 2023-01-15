@@ -1,3 +1,8 @@
 __pycache__
 *.pyc
+<<<<<<< HEAD
 .env
+=======
+InvoiceNet/
+test_imgs/receipts/
+>>>>>>> 89f21eae3ae4048303a0c1f510dc7d5aaa6b8cd8
