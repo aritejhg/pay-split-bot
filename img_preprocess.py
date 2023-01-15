@@ -11,8 +11,8 @@ import pytesseract
 import imutils
 
 def preprocess_img(img_path):
-    img = cv2.imread(img_path)
-    denoised = denoise(img)
+    # img = cv2.imread(img_path)
+    denoised = denoise(img_path)
     gray = cv2.cvtColor(denoised, cv2.COLOR_BGR2GRAY)
     gray = remove_shadow(gray)
     thresh = threshold(gray)

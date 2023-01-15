@@ -5,18 +5,23 @@ import logging
 import os
 import time
 
+import img_preprocess
+import postprocess
+import cv2
+
 import config
 import pytesseract
 import telegram
 from telegram import Update
 from telegram.ext import (ApplicationBuilder, CommandHandler, ContextTypes,
-                          filters, MessageHandler, PollHandler, PollAnswerHandler)
+                          filters, MessageHandler, PollHandler, PollAnswerHandler, Updater)
 from telegram.constants import ParseMode
-from telegram.helpers import escape_markdown, Updater
+from telegram.helpers import escape_markdown
 from utils import get_bot_token
 from receipt_split import ReceiptSplit
 
 from receipt_split import ReceiptSplit
+
 
 try:
 	import Image
@@ -55,13 +60,13 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-POLL_OPEN_TIME = 24 * 60 * 60 # 24 hours
+POLL_OPEN_TIME = 5 # 24 hours
 REMINDER_DELAY = 120 # 2 min
 REMINDER_INTERVAL = 300 # 5 min
 
-POLL_OPEN_TIME = 24 * 60 * 60 # 24 hours
-REMINDER_DELAY = 120 # 2 min
-REMINDER_INTERVAL = 300 # 5 min
+# POLL_OPEN_TIME = 24 * 60 * 60 # 24 hours
+# REMINDER_DELAY = 120 # 2 min
+# REMINDER_INTERVAL = 300 # 5 min
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
@@ -69,12 +74,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text="Welcome to Pay-Split-Bot!"
     )
 
-async def send_split(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_split(update: Update, context: ContextTypes.DEFAULT_TYPE, orderItems):
     message = update.message
-    poll_name = message.text.split(" ")[1]
+    # poll_name = message.text.split(" ")[1]
+    poll_name = "Bill Split"
+
 
     # Send poll
-    items = ["Apple", "Orange", "Banana"] # TODO: Replace
+    items = [item[0] for item in orderItems if item[1] != 0]
 
     chat_id = update.effective_chat.id
     sent_poll = await context.bot.send_poll(
@@ -100,8 +107,9 @@ async def send_split(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_polls[sent_poll.poll.id] = split_obj
 
     # Schedule reminder
-    reminder_job = context.job_queue.run_repeating(split_reminder, interval=REMINDER_INTERVAL, first=REMINDER_DELAY, data={"poll_message_id": sent_poll.message_id, "split_obj": split_obj}, chat_id=chat_id)
-    split_obj.reminder_job = reminder_job
+    if context.job_queue:
+        reminder_job = context.job_queue.run_repeating(split_reminder, interval=REMINDER_INTERVAL, first=REMINDER_DELAY, data={"poll_message_id": sent_poll.message_id, "split_obj": split_obj}, chat_id=chat_id)
+        split_obj.reminder_job = reminder_job
 
     logging.debug(chat_polls)
     logging.info(f"Created poll {sent_poll.poll.id}")
@@ -178,7 +186,6 @@ and send you back the results.
 In groups, I will not automatically parse the images, \
 I will wait for someoneto use the /splitpayments command, \
 then I'll parse the last image sent.
-
 """
 
 async def start(update, context):
@@ -196,34 +203,28 @@ async def unknown(update, context):
 		text="Sorry, I didn't understand that command :(")
 
 async def message(update, context):
+    #nonlocal group_photos
 
-    # if not update.check_update():
-    #     return
-    # else:
-    #     if not update.message.photo:
-    #         return
-    if not update.message.document:
+    if not update.message.photo:
         return
 
-    photosize = await context.bot.get_file(update.message.document.file_id)
-    #photosize = context.bot.getFile(update.message.photo[-1].file_id)
-    # if update.message.chat_id > 0: # user	
-    # 	_photosize_to_parsed(bot, update, photosize)
-
-    # else: # group
+    photosize = await context.bot.get_file(update.message.photo.file_id)
+    
+   
     group_photos[update.message.chat_id] = photosize
+    
 
 
 async def split_payments(update, context):
-	# if update.message.chat_id > 0:
-	# 	bot.send_message(chat_id=update.message.chat_id, text='/splitpayments command is only available to groups.')
-	# else:
-	await _photosize_to_parsed(update, context, group_photos[update.message.chat_id])
+    print("group photos", group_photos)
+    
+    await _photosize_to_parsed(update, context, group_photos.get(update.message.chat_id))
 
 
 async def _photosize_to_parsed(update, context, photosize):
 	# try:
     #filename = config.CACHE_DIR+'/photo_'+''.join(str(time.time()).split('.'))+'.jpg'
+    #print(photosize)
 
     filename = config.CACHE_DIR+'/photo_16737215687738645.jpg'
 
@@ -231,10 +232,14 @@ async def _photosize_to_parsed(update, context, photosize):
 
     #photosize.download(filename)
 
-    #language = 'eng'
+    out_img = img_preprocess.preprocess_img(cv2.imread(filename))
+    image_text = pytesseract.image_to_string(out_img)
+    items, taxes, total = postprocess.openai_call(image_text)
 
-    image_text = pytesseract.image_to_string(Image.open(filename))
+    #print(items)
+    await send_split(update, context, items)
 
+    
     if config.CACHE_TEMP:
         os.remove(filename)
 
@@ -245,14 +250,8 @@ async def _photosize_to_parsed(update, context, photosize):
     else:
         response_msg = 'Nothing found'
     
-    await context.bot.send_message(chat_id=update.message.chat_id, text=response_msg)
+    #await context.bot.send_message(chat_id=update.message.chat_id, text=response_msg)
 
-		# bot.send_message(chat_id=update.message.chat_id,
-		# 				text=response_msg,
-		# 			parse_mode=telegram.ParseMode.MARKDOWN)
-
-	# except Exception as e:
-    #     _something_wrong(bot, update, e)
 
 async def _something_wrong(update, context, e):
 
@@ -291,15 +290,13 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(bot_token).build()
 
     start_handler = CommandHandler('start', start)
-    poll_handler = CommandHandler('poll', poll)
-    message_handler = MessageHandler(filters.ALL, message)
+    #poll_handler = CommandHandler('poll', poll)
+    message_handler = MessageHandler(None, message)
     upload_handler = CommandHandler('splitpayments', split_payments)
-    help_handler = CommandHandler('help', help)
-    app.add_handlers([start_handler, poll_handler, upload_handler, message_handler])
-    
+    help_handler = CommandHandler('help', help)    
     split_handler = CommandHandler('split', send_split)
     poll_answer_handler = PollAnswerHandler(poll_answer)
     finalize_handler = CommandHandler('final', finalize_split)
-    app.add_handlers([start_handler, split_handler, poll_answer_handler, finalize_handler])
+    app.add_handlers([start_handler, split_handler, poll_answer_handler,upload_handler,message_handler, finalize_handler])
 
     app.run_polling()
