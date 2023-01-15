@@ -73,12 +73,6 @@ REMINDER_INTERVAL = 300 # 5 min
 # REMINDER_DELAY = 120 # 2 min
 # REMINDER_INTERVAL = 300 # 5 min
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Welcome to Pay-Split-Bot!"
-    )
-
 async def send_split(update: Update, context: ContextTypes.DEFAULT_TYPE, orderItems):
     message = update.message
     # poll_name = message.text.split(" ")[1]
@@ -149,6 +143,8 @@ async def finalize_split(update: Update, context: ContextTypes.DEFAULT_TYPE):
     past_message = message.reply_to_message
     past_id = past_message.message_id
 
+    logging.info("Finalizing")
+
     poll = past_message.poll
     if poll is None:
         await context.bot.send_message(
@@ -165,6 +161,7 @@ async def finalize_split(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="Please reply to a Receipt Split"
         )
         return
+    logging.info("Finalizing", poll_id)
 
     split_obj = chat_polls[poll_id]
 
@@ -213,15 +210,15 @@ async def message(update, context):
         return
 
     photosize = await context.bot.get_file(update.message.photo.file_id)
-    
-   
+
+
     group_photos[update.message.chat_id] = photosize
-    
+
 
 
 async def split_payments(update, context):
     print("group photos", group_photos)
-    
+
     await _photosize_to_parsed(update, context, group_photos.get(update.message.chat_id))
 
 
@@ -245,7 +242,7 @@ async def _photosize_to_parsed(update, context, photosize):
     #print(items)
     await send_split(update, context, items)
 
-    
+
     if config.CACHE_TEMP:
         os.remove(filename)
 
@@ -255,7 +252,7 @@ async def _photosize_to_parsed(update, context, photosize):
         response_msg = sanitized_string
     else:
         response_msg = 'Nothing found'
-    
+
     #await context.bot.send_message(chat_id=update.message.chat_id, text=response_msg)
 
 
@@ -284,25 +281,23 @@ def _sanitize_string(string):
 
 if __name__ == "__main__":
     os.chdir(os.path.split(os.path.abspath(__file__))[0])
-    
-    try:
-	    os.mkdir(config.CACHE_DIR)
 
+    try:
+        os.mkdir(config.CACHE_DIR)
     except OSError as e:
-	    if e.errno != errno.EEXIST:
-	        raise e
-            
+        if e.errno != errno.EEXIST:
+            raise e
+
     bot_token = '5815060511:AAEk25nNBcnHc-utraWJigxQzDEkFQwv4jc'
     app = ApplicationBuilder().token(bot_token).build()
 
     start_handler = CommandHandler('start', start)
     #poll_handler = CommandHandler('poll', poll)
     upload_handler = CommandHandler('splitpayments', split_payments)
-    help_handler = CommandHandler('help', help)    
+    help_handler = CommandHandler('help', help)
     split_handler = CommandHandler('split', send_split)
     poll_answer_handler = PollAnswerHandler(poll_answer)
     finalize_handler = CommandHandler('final', finalize_split)
-    message_handler = MessageHandler(None, message)
-    app.add_handlers([start_handler, split_handler, poll_answer_handler,upload_handler,message_handler, finalize_handler])
+    app.add_handlers([start_handler, split_handler, poll_answer_handler,upload_handler, finalize_handler, message_handler])
 
     app.run_polling()
